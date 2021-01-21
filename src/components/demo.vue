@@ -96,7 +96,7 @@
               <img
                 v-for="(item, key) in cards"
                 :key="key"
-                src="home.jpg"
+                src="'cards/'+item.type+'-'+item.value+'.jpg'"
                 alt=""
                 :style="changeStyles(key)"
                 @mousedown="chooseSingle1"
@@ -107,8 +107,8 @@
           </a-layout-footer>
         </a-layout>
       </div>
-      <div v-if='readyToNext'> 
-        <a-button @click='next'>next</a-button>
+      <div v-if="readyToNext">
+        <a-button @click="next">next</a-button>
       </div>
     </div>
     <div></div>
@@ -144,9 +144,11 @@ export default {
       lastCards: { username: undefined, cards: [] },
       turning: '',
       lastTurning: '',
-      finished:false,
-      current:3,
-      readyToNext:false
+      finished: false,
+      current: 3,
+      readyToNext: false,
+      needTogong: false,
+      gongs: [],
     };
   },
   //    setup(props,context) {
@@ -183,9 +185,12 @@ export default {
       this.members = val;
     });
     this.socket.on('dealCards', (val) => {
+      this.readyToNext = false;
+      this.playedCards = {};
+      this.choosedCards = {};
       this.cards = val.cards.sort((a, b) => a.value - b.value);
       this.cardsMap = {};
-      if(val.orders){
+      if (val.orders) {
         this.orders = val.orders;
       }
       this.orders.forEach((ele, index) => {
@@ -200,30 +205,41 @@ export default {
       this.dealed = true;
       this.turning = val.turning;
       this.lastTurning = val.lastTurning;
-    });
-    this.socket.on('playedcards', (val) => {
-      this.turning = val.turning;
-      this.lastTurning = val.lastTurning;
-      console.log(val.turning,val.lastTurning, this.username)
-      if(!this.finished){
-        console.log(val);
-      }else if(val.turning == this.username){
-        if(val.turning == val.lastTurning ){
-          this.socket.emit('jump',{roomId:this.roomId,order:this.selfIndex})
-        }else{
-           this.socket.emit('play', {
-             cards: null,
-             username: this.username,
-             roomId: this.roomId,
-
+      if (val.gong) {
+        if (val.gong.includes(this.username)) {
+          this.needTogong = true;
+          let card = this.cards[this.card.length - 1];
+          this.gongs = this.cards.filter((ele) => {
+            return ele.value == card.value;
           });
         }
       }
     });
-    this.socket.on('end',(val)=>{
+    this.socket.on('playedcards', (val) => {
+      this.turning = val.turning;
+      this.lastTurning = val.lastTurning;
+      console.log(val.turning, val.lastTurning, this.username);
+      if (!this.finished) {
+        console.log(val);
+      } else if (val.turning == this.username) {
+        if (val.turning == val.lastTurning) {
+          this.socket.emit('jump', {
+            roomId: this.roomId,
+            order: this.selfIndex,
+          });
+        } else {
+          this.socket.emit('play', {
+            cards: null,
+            username: this.username,
+            roomId: this.roomId,
+          });
+        }
+      }
+    });
+    this.socket.on('end', (val) => {
       this.current = val.current;
       this.readyToNext = true;
-    })
+    });
     //      console.log('::::::',this.socket)
     this.username =
       '' +
@@ -325,7 +341,7 @@ export default {
     },
     startChoose() {
       this.choosing = true;
-    //  console.log('::start', e);
+      //  console.log('::start', e);
     },
     chooseCards(e) {
       if (this.choosing) {
@@ -333,7 +349,7 @@ export default {
       }
     },
     endChoose() {
-   //   console.log('endChoose');
+      //   console.log('endChoose');
       this.choosing = false;
     },
     chooseSingle1(e) {
@@ -342,7 +358,7 @@ export default {
     chooseSingle2(e) {
       e.stopPropagation();
       let index = e.target.dataset.index;
-    //  console.log(this.choosedCards);
+      //  console.log(this.choosedCards);
       let ifchoosed = this.choosedCards[index];
       if (ifchoosed) {
         delete this.choosedCards[index];
@@ -380,12 +396,12 @@ export default {
         roomId: this.roomId,
       });
     },
-    next(){
+    next() {
       this.readyToNext = false;
       this.playedCards = {};
       this.choosedCards = {};
-      this.socket.emit('next',{roomId:this.roomId})
-    }
+      this.socket.emit('next', { roomId: this.roomId });
+    },
   },
 };
 </script>
